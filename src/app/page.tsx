@@ -1,25 +1,41 @@
-import ScrollyCanvas from "@/components/ScrollyCanvas";
-import Projects from "@/components/Projects";
-import Skills from "@/components/Skills";
-import About from "@/components/About";
-import Contact from "@/components/Contact";
-import Cursor from "@/components/Cursor";
-import Achievements from "@/components/Achievements";
-import Leadership from "@/components/Leadership";
+"use client";
+
+import { useRef } from "react";
+import { useScroll } from "framer-motion";
+import { Navbar } from "@/components/Navbar";
+import { ScrollyCanvas } from "@/components/ScrollyCanvas";
+import { StoryOverlay } from "@/components/StoryOverlay";
+import { Projects } from "@/components/Projects";
+import { AboutSkillsAchievements } from "@/components/AboutSkillsAchievements";
+import { Footer } from "@/components/Footer";
 
 export default function Home() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Track scroll progress of the 500vh container
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end end"]
+  });
+
   return (
-    <main className="bg-[#020617] min-h-screen selection:bg-white/30 selection:text-white sm:cursor-none">
-      <Cursor />
-      <div className="noise-bg" />
-      <ScrollyCanvas />
-      <div className="relative z-20 bg-[#020617]">
-        <About />
-        <Skills />
-        <Achievements />
-        <Leadership />
+    <main className="relative min-h-screen bg-[#121212]">
+      <Navbar />
+      
+      {/* 500vh Scrolly section */}
+      <div ref={containerRef} className="relative h-[500vh]">
+        {/* Sticky wrapper that stays in view while scrolling through the 500vh container */}
+        <div className="sticky top-0 h-screen w-full overflow-hidden">
+          <ScrollyCanvas scrollYProgress={scrollYProgress} />
+          <StoryOverlay scrollYProgress={scrollYProgress} />
+        </div>
+      </div>
+
+      {/* Subsequent sections below the scrolly section */}
+      <div className="relative z-20 bg-[#121212]">
+        <AboutSkillsAchievements />
         <Projects />
-        <Contact />
+        <Footer />
       </div>
     </main>
   );

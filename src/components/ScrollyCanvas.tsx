@@ -1,100 +1,98 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { useScroll, useTransform, useMotionValueEvent } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { useTransform, MotionValue } from "framer-motion";
 
-const TOTAL_FRAMES = 90;
+interface ScrollyCanvasProps {
+  scrollYProgress: MotionValue<number>;
+}
 
-export default function ScrollyCanvas() {
+export function ScrollyCanvas({ scrollYProgress }: ScrollyCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imagesRef = useRef<HTMLImageElement[]>([]);
-  const frameRef = useRef(0);
+  const [images, setImages] = useState<HTMLImageElement[]>([]);
+  const frameCount = 120;
 
-  const { scrollYProgress } = useScroll();
-
-  const frameIndex = useTransform(
-    scrollYProgress,
-    [0, 1],
-    [0, TOTAL_FRAMES - 1]
-  );
-
-  // ✅ Preload images (VERY IMPORTANT)
+  // Preload Images
   useEffect(() => {
-    const images: HTMLImageElement[] = [];
+    const loadedImages: HTMLImageElement[] = [];
+    let loadedCount = 0;
 
-    for (let i = 0; i < TOTAL_FRAMES; i++) {
+    for (let i = 0; i < frameCount; i++) {
       const img = new Image();
-      img.src = `/sequence/frame_${String(i).padStart(2, "0")}_delay-0.067s.webp`;
-      images.push(img);
+      // Format number to '000' to '119'
+      const paddedIndex = i.toString().padStart(3, "0");
+      // E.g. /Sequence/frame_000_delay-0.066s.png
+      img.src = `/Sequence/frame_${paddedIndex}_delay-0.066s.png`;
+      
+      img.onload = () => {
+        loadedCount++;
+        if (loadedCount === frameCount) {
+          // Force update to rely on useTransform firing rendering
+          setImages([...loadedImages]);
+        }
+      };
+      loadedImages.push(img);
     }
-
-    imagesRef.current = images;
+    setImages(loadedImages);
   }, []);
 
-  // ✅ Smooth render using requestAnimationFrame
-  useMotionValueEvent(frameIndex, "change", (latest) => {
-    const nextFrame = Math.floor(latest);
-
-    if (nextFrame === frameRef.current) return;
-
-    frameRef.current = nextFrame;
-
-    requestAnimationFrame(() => {
-      renderFrame(nextFrame);
-    });
-  });
+  // Map scroll progress to frame index
+  const frameIndex = useTransform(scrollYProgress, [0, 1], [0, frameCount - 1]);
 
   const renderFrame = (index: number) => {
+    if (images.length === 0 || !canvasRef.current) return;
+    
     const canvas = canvasRef.current;
-    const context = canvas?.getContext("2d");
-    const img = imagesRef.current[index];
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-    if (!canvas || !context || !img) return;
+    const img = images[Math.floor(index)];
+    if (!img || !img.complete) return;
 
-    const { width, height } = canvas;
+    // Fixed internal resolution
+    canvas.width = 1920;
+    canvas.height = 1080;
 
-    context.clearRect(0, 0, width, height);
+    // Draw image covering the canvas (similar to object-fit: cover)
+    const cw = canvas.width;
+    const ch = canvas.height;
+    const iw = img.width;
+    const ih = img.height;
+    const canvasRatio = cw / ch;
+    const imgRatio = iw / ih;
 
-    // ✅ object-fit: cover logic
-    const scale = Math.max(
-      width / img.width,
-      height / img.height
-    );
+    let drawW, drawH, drawX, drawY;
 
-    const x = (width - img.width * scale) / 2;
-    const y = (height - img.height * scale) / 2;
+    if (imgRatio > canvasRatio) {
+      drawH = ch;
+      drawW = imgRatio * ch;
+      drawX = (cw - drawW) / 2;
+      drawY = 0;
+    } else {
+      drawW = cw;
+      drawH = cw / imgRatio;
+      drawX = 0;
+      drawY = (ch - drawH) / 2;
+    }
 
-    context.drawImage(
-      img,
-      x,
-      y,
-      img.width * scale,
-      img.height * scale
-    );
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.drawImage(img, drawX, drawY, drawW, drawH);
   };
 
-  // ✅ Handle resize properly
-  useEffect(() => {
-    const canvas = canvasRef.current;
-
-    const resizeCanvas = () => {
-      if (!canvas) return;
-
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-
-    return () => window.removeEventListener("resize", resizeCanvas);
-  }, []);
+  useTransform(frameIndex, (latest) => {
+    renderFrame(latest);
+    return latest;
+  });
 
   return (
-    <div className="h-[500vh]">
-      <div className="sticky top-0 h-screen w-full z-0 pointer-events-none">
-        <canvas ref={canvasRef} className="w-full h-full object-cover" />
-      </div>
+    <div className="absolute inset-0 z-0 h-full w-full pointer-events-none bg-black">
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full object-cover opacity-100 mix-blend-screen brightness-125"
+      />
+      {/* Cinematic subtle gradients overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#121212] via-transparent to-[#121212]/20 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#121212] via-transparent to-transparent opacity-40 pointer-events-none" />
     </div>
   );
 }

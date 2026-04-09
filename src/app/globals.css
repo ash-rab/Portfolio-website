@@ -1,23 +1,33 @@
 @import "tailwindcss";
 
-/* Mobile Fixes */
-html {
-  overflow-x: hidden;
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+:root {
+  --background: #121212;
+  --foreground: #ffffff;
 }
 
 body {
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch; /* Smooth scroll on iOS */
+  background-color: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-canvas {
-  display: block;
-  touch-action: none;
+/* Custom scrollbar for better look */
+::-webkit-scrollbar {
+  width: 8px;
 }
-
-/* Prevent text from being too small on mobile */
-@media (max-width: 768px) {
-  h1 { font-size: clamp(2rem, 8vw, 4rem); }
-  h2 { font-size: clamp(1.5rem, 6vw, 3rem); }
-  p  { font-size: clamp(0.9rem, 4vw, 1.1rem); }
+::-webkit-scrollbar-track {
+  background: #121212;
+}
+::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555555;
 }
