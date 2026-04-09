@@ -1,104 +1,100 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useScroll, useTransform, useMotionValueEvent } from "framer-motion";
-import CinematicOverlay from "./CinematicOverlay";
 
-const FRAME_COUNT = 120; // We have 120 frames in public/sequence/
+const TOTAL_FRAMES = 90;
 
 export default function ScrollyCanvas() {
-  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [images, setImages] = useState<HTMLImageElement[]>([]);
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start start", "end end"]
-  });
+  const imagesRef = useRef<HTMLImageElement[]>([]);
+  const frameRef = useRef(0);
 
-  // Preload images
+  const { scrollYProgress } = useScroll();
+
+  const frameIndex = useTransform(
+    scrollYProgress,
+    [0, 1],
+    [0, TOTAL_FRAMES - 1]
+  );
+
+  // ✅ Preload images (VERY IMPORTANT)
   useEffect(() => {
-    const loadedImages: HTMLImageElement[] = [];
-    let loadedCount = 0;
+    const images: HTMLImageElement[] = [];
 
-    for (let i = 0; i < FRAME_COUNT; i++) {
+    for (let i = 0; i < TOTAL_FRAMES; i++) {
       const img = new Image();
-      const frameNum = i.toString().padStart(3, "0");
-      img.src = `/sequence/frame_${frameNum}_delay-0.066s.png`;
-      
-      img.onload = () => {
-        loadedCount++;
-        if (loadedCount === FRAME_COUNT) {
-          setImages(loadedImages);
-          
-          if (canvasRef.current && loadedImages[0]) {
-            const ctx = canvasRef.current.getContext("2d");
-            if (ctx) drawImageCover(ctx, canvasRef.current, loadedImages[0]);
-          }
-        }
-      };
-      // Important: push to maintain order
-      loadedImages.push(img);
+      img.src = `/sequence/frame_${String(i).padStart(2, "0")}_delay-0.067s.webp`;
+      images.push(img);
     }
+
+    imagesRef.current = images;
   }, []);
 
-  const currentIndex = useTransform(scrollYProgress, [0, 1], [0, FRAME_COUNT - 1]);
+  // ✅ Smooth render using requestAnimationFrame
+  useMotionValueEvent(frameIndex, "change", (latest) => {
+    const nextFrame = Math.floor(latest);
 
-  useMotionValueEvent(currentIndex, "change", (latest) => {
-    if (images.length === FRAME_COUNT && canvasRef.current) {
-      const ctx = canvasRef.current.getContext("2d");
-      const frameIndex = Math.min(Math.max(Math.round(latest), 0), FRAME_COUNT - 1);
-      
-      if (ctx && images[frameIndex]) {
-        drawImageCover(ctx, canvasRef.current, images[frameIndex]);
-      }
-    }
+    if (nextFrame === frameRef.current) return;
+
+    frameRef.current = nextFrame;
+
+    requestAnimationFrame(() => {
+      renderFrame(nextFrame);
+    });
   });
 
+  const renderFrame = (index: number) => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    const img = imagesRef.current[index];
+
+    if (!canvas || !context || !img) return;
+
+    const { width, height } = canvas;
+
+    context.clearRect(0, 0, width, height);
+
+    // ✅ object-fit: cover logic
+    const scale = Math.max(
+      width / img.width,
+      height / img.height
+    );
+
+    const x = (width - img.width * scale) / 2;
+    const y = (height - img.height * scale) / 2;
+
+    context.drawImage(
+      img,
+      x,
+      y,
+      img.width * scale,
+      img.height * scale
+    );
+  };
+
+  // ✅ Handle resize properly
   useEffect(() => {
-    const handleResize = () => {
-      if (images.length === FRAME_COUNT && canvasRef.current) {
-        const ctx = canvasRef.current.getContext("2d");
-        const frameIndex = Math.min(Math.max(Math.round(currentIndex.get()), 0), FRAME_COUNT - 1);
-        if (ctx && images[frameIndex]) {
-          drawImageCover(ctx, canvasRef.current, images[frameIndex]);
-        }
-      }
+    const canvas = canvasRef.current;
+
+    const resizeCanvas = () => {
+      if (!canvas) return;
+
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
     };
-    
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [images, currentIndex]);
+
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    return () => window.removeEventListener("resize", resizeCanvas);
+  }, []);
 
   return (
-    <div ref={containerRef} className="relative h-[500vh] bg-[#020617]">
-      <div className="sticky top-0 h-screen w-full overflow-hidden">
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 w-full h-full"
-        />
-        <CinematicOverlay scrollYProgress={scrollYProgress} />
+    <div className="h-[500vh]">
+      <div className="sticky top-0 h-screen w-full z-0 pointer-events-none">
+        <canvas ref={canvasRef} className="w-full h-full object-cover" />
       </div>
     </div>
   );
-}
-
-// Draw image with object-fit: cover logic
-function drawImageCover(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, img: HTMLImageElement) {
-  const dpr = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-  
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
-  
-  const canvasWidth = canvas.width;
-  const canvasHeight = canvas.height;
-  const imgWidth = img.width;
-  const imgHeight = img.height;
-  
-  const scale = Math.max(canvasWidth / imgWidth, canvasHeight / imgHeight);
-  const x = (canvasWidth / 2) - (imgWidth / 2) * scale;
-  const y = (canvasHeight / 2) - (imgHeight / 2) * scale;
-  
-  ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-  ctx.drawImage(img, x, y, imgWidth * scale, imgHeight * scale);
 }

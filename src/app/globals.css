@@ -1,34 +1,23 @@
 @import "tailwindcss";
 
-:root {
-  --background: #020617;
-  --foreground: #ffffff;
-}
-
-body {
-  background-color: var(--background);
-  color: var(--foreground);
+/* Mobile Fixes */
+html {
   overflow-x: hidden;
 }
 
-/* Ensure canvas doesn't blur unnecessarily while still looking good */
+body {
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; /* Smooth scroll on iOS */
+}
+
 canvas {
-  image-rendering: auto;
+  display: block;
+  touch-action: none;
 }
 
-/* Smooth out scrolling */
-html {
-  scroll-behavior: smooth;
-}
-
-.noise-bg {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  pointer-events: none;
-  z-index: 50;
-  opacity: 0.04;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+/* Prevent text from being too small on mobile */
+@media (max-width: 768px) {
+  h1 { font-size: clamp(2rem, 8vw, 4rem); }
+  h2 { font-size: clamp(1.5rem, 6vw, 3rem); }
+  p  { font-size: clamp(0.9rem, 4vw, 1.1rem); }
 }
